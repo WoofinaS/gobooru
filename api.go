@@ -5,16 +5,14 @@ package gobooru
 import (
 	"encoding/xml"
 	"errors"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
-type api struct {
-	key    string
-	userID string
-}
+type authKey string
 
 type PostFilter struct {
 	PostID    uint
@@ -127,36 +125,28 @@ const (
 	baseCommentsUrl   = baseUrl + "page=dapi&s=comment&q=index"
 )
 
-// Returns a api struct that allows the user to interact with the gelbooru api.
-// Both a API key and User ID are required specified to authenticate a user and
-// prevent api lockouts
-func NewApi(key, userID string) api {
-	return api{key, userID}
-}
-
-// Returns a string to be appened on a api request to authenticate a user and
-// to prevent api lockouts.
-func (self api) authString() string {
-	var auth strings.Builder
-	for _, v := range [...]string{
-		"&api_key=", self.key,
-		"&user_id", self.userID,
-	} {
-		auth.WriteString(v)
+// NewAuthKey returns an authKey that allows the user to interact with the gelbooru API.
+// Both an API key and UserID must be specified to authenticate a user and prevent api lockouts.
+func NewAuthKey(key, user string) (authKey, error) {
+	if len(key) == 0 {
+		return "", errors.New("key of length 0")
 	}
-	return auth.String()
+	if len(user) == 0 {
+		return "", errors.New("user of length 0")
+	}
+	return authKey(fmt.Sprint("&api_key=", key, "&user_id", user)), nil
 }
 
-// Returns a postSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed PostFilter
-func (self api) SearchPosts(filter PostFilter) (postSearchResults, error) {
+// SearchPosts returns a postSearchResults that contains the results of the gelbooru api
+// call using the filters specifed in the passed PostFilter.
+func (a authKey) SearchPosts(filter PostFilter) (postSearchResults, error) {
 	var url strings.Builder
 	var results postSearchResults
 	if filter.PostLimit > 100 {
 		return postSearchResults{}, errors.New("post limit can not be greater then 100")
 	}
 	url.WriteString(basePostSearchUrl)
-	url.WriteString(self.authString())
+	url.WriteString(string(a))
 	url.WriteString("&pid=")
 	url.WriteString(strconv.Itoa(int(filter.PageNum)))
 	url.WriteString("&limit=")
@@ -173,21 +163,21 @@ func (self api) SearchPosts(filter PostFilter) (postSearchResults, error) {
 		}
 	}
 	if err := request(url.String(), &results); err != nil {
-		return postSearchResults{}, errors.New("failed to send request to api")
+		return postSearchResults{}, err
 	}
 	return results, nil
 }
 
-// Returns a tagSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed TagFilter
-func (self api) SearchTags(filter TagFilter) (tagSearchResults, error) {
+// SearchTags returns a tagSearchResults that contains the results of the gelbooru api
+// call using the filters specifed in the passed TagFilter.
+func (a authKey) SearchTags(filter TagFilter) (tagSearchResults, error) {
 	var url strings.Builder
 	var results tagSearchResults
 	if filter.TagLimit > 100 {
 		return tagSearchResults{}, errors.New("tag limit can not be greater then 100")
 	}
 	url.WriteString(basePostSearchUrl)
-	url.WriteString(self.authString())
+	url.WriteString(string(a))
 	url.WriteString("&id=")
 	url.WriteString(strconv.Itoa(int(filter.TagID)))
 	url.WriteString("&limit=")
@@ -209,21 +199,21 @@ func (self api) SearchTags(filter TagFilter) (tagSearchResults, error) {
 	url.WriteString("&orderby=")
 	url.WriteString(filter.OrderBy)
 	if err := request(url.String(), &results); err != nil {
-		return tagSearchResults{}, errors.New("failed to send request to api")
+		return tagSearchResults{}, err
 	}
 	return results, nil
 }
 
-// Returns a userSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed UserFilter
-func (self api) SearchUsers(filter UserFilter) (userSearchResults, error) {
+// SearchUsers returns a userSearchResults that contains the results of the gelbooru api
+// call using the filters specifed in the passed UserFilter.
+func (a authKey) SearchUsers(filter UserFilter) (userSearchResults, error) {
 	var url strings.Builder
 	var results userSearchResults
 	if filter.UserLimit > 100 {
 		return userSearchResults{}, errors.New("user limit can not be greater then 100")
 	}
 	url.WriteString(basePostSearchUrl)
-	url.WriteString(self.authString())
+	url.WriteString(string(a))
 	url.WriteString("&limit=%d")
 	url.WriteString(strconv.Itoa(int(filter.UserLimit)))
 	url.WriteString("&pid=")
@@ -233,25 +223,25 @@ func (self api) SearchUsers(filter UserFilter) (userSearchResults, error) {
 	url.WriteString("&name_pattern=")
 	url.WriteString(filter.NamePattern)
 	if err := request(url.String(), &results); err != nil {
-		return userSearchResults{}, errors.New("failed to send request to api")
+		return userSearchResults{}, err
 	}
 	return results, nil
 }
 
-// Returns a commentSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed CommentFilter
-func (self api) SearchComments(filter CommentFilter) (commentSearchResults, error) {
+// SearchComments returns a commentSearchResults that contains the results of the gelbooru api
+// call using the filters specifed in the passed CommentFilter.
+func (a authKey) SearchComments(filter CommentFilter) (commentSearchResults, error) {
 	var url strings.Builder
 	var results commentSearchResults
 	if filter.PostID == 0 {
 		return commentSearchResults{}, errors.New("invalid PostID 0")
 	}
 	url.WriteString(baseCommentsUrl)
-	url.WriteString(self.authString())
+	url.WriteString(string(a))
 	url.WriteString("&post_id=")
 	url.WriteString(strconv.Itoa(int(filter.PostID)))
 	if err := request(url.String(), &results); err != nil {
-		return commentSearchResults{}, errors.New("failed to send request to api")
+		return commentSearchResults{}, err
 	}
 	return results, nil
 }
@@ -262,7 +252,7 @@ func request(url string, v any) error {
 	if err != nil {
 		return err
 	}
-	bytes, err := ioutil.ReadAll(resp.Body)
+	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
