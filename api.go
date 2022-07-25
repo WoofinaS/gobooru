@@ -126,15 +126,13 @@ const (
 )
 
 // NewClient returns an Client that allows the user to interact with the gelbooru API.
-// Both an API key and UserID must be specified to authenticate a user and prevent api lockouts.
-func NewClient(key, user string) (Client, error) {
-	if len(key) == 0 {
-		return "", errors.New("key of length 0")
+// Authenticating a user account with both an API key and UserID may prevent API rate limiting,
+// however, use without either is possible as well.
+func NewClient(key, user string) Client {
+	if len(key) == 0 || len(user) == 0 {
+		return ""
 	}
-	if len(user) == 0 {
-		return "", errors.New("user of length 0")
-	}
-	return Client(fmt.Sprint("&api_key=", key, "&user_id", user)), nil
+	return Client(fmt.Sprint("&api_key=", key, "&user_id", user))
 }
 
 // SearchPosts returns a postSearchResults that contains the results of the gelbooru api
@@ -157,10 +155,10 @@ func (c Client) SearchPosts(filter PostFilter) (postSearchResults, error) {
 	url.WriteString(strconv.Itoa(int(filter.PostID)))
 	url.WriteString("&tags=")
 	for i, v := range filter.Tags {
-		url.WriteString(v)
-		if i != len(filter.Tags)-1 {
+		if i > 0 {
 			url.WriteByte('+')
 		}
+		url.WriteString(v)
 	}
 	if err := request(url.String(), &results); err != nil {
 		return postSearchResults{}, err
@@ -188,12 +186,11 @@ func (c Client) SearchTags(filter TagFilter) (tagSearchResults, error) {
 	url.WriteString(filter.Name)
 	url.WriteString("&names=")
 	for i, v := range filter.Names {
-		url.WriteString(v)
-		if i != len(filter.Names)-1 {
+		if i > 0 {
 			url.WriteByte('+')
 		}
+		url.WriteString(v)
 	}
-	url.WriteString(filter.Names[len(filter.Names)-1])
 	url.WriteString("&name_pattern=")
 	url.WriteString(filter.NamePattern)
 	url.WriteString("&orderby=")
