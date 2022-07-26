@@ -14,115 +14,11 @@ import (
 
 type Client string
 
-type PostFilter struct {
-	PostID    uint
-	PostLimit uint
-	PageNum   uint
-	Tags      []string
-	ChangeID  uint
-}
-
-type TagFilter struct {
-	TagID       uint
-	TagLimit    uint
-	AfterID     uint
-	Name        string
-	Names       []string
-	NamePattern string
-	OrderBy     string
-}
-
-type UserFilter struct {
-	UserLimit   uint
-	PageNum     uint
-	UserName    string
-	NamePattern string
-}
-
-type CommentFilter struct {
-	PostID uint
-}
-
-type postSearchResults struct {
-	Posts  []post `xml:"post"`
-	Limit  uint   `xml:"limit,attr"`
-	Offset uint   `xml:"offset,attr"`
-	Count  uint   `xml:"count,attr"`
-}
-
-type tagSearchResults struct {
-	Tags   []tag `xml:"tag"`
-	Limit  uint  `xml:"limit,attr"`
-	Offset uint  `xml:"offset,attr"`
-	Count  uint  `xml:"count,attr"`
-}
-
-type userSearchResults struct {
-	Users  []user `xml:"user"`
-	Limit  uint   `xml:"limit,attr"`
-	Offset uint   `xml:"offset,attr"`
-	Count  uint   `xml:"count,attr"`
-}
-
-type commentSearchResults struct {
-	Comments []comment `xml:"comment"`
-}
-
-type post struct {
-	ID            uint   `xml:"id"`
-	CreationDate  string `xml:"created_at"`
-	Score         int    `xml:"score"`
-	Width         uint   `xml:"width"`
-	Height        uint   `xml:"height"`
-	MD5Hash       string `xml:"md5"`
-	Directory     string `xml:"directory"`
-	FileName      string `xml:"image"`
-	Rating        string `xml:"rating"`
-	SourceURL     string `xml:"source"`
-	Change        uint   `xml:"change"`
-	Owner         string `xml:"owner"`
-	CreatorID     uint   `xml:"creator_id"`
-	ParentID      uint   `xml:"parent_id"`
-	Sample        uint   `xml:"sample"`
-	PreviewHeight uint   `xml:"preview_height"`
-	PreviewWidth  uint   `xml:"preview_width"`
-	Tags          string `xml:"tags"`
-	HasNotes      bool   `xml:"has_notes"`
-	HasComments   bool   `xml:"has_comments"`
-	FileURL       string `xml:"file_url"`
-	PreviewURL    string `xml:"preview_url"`
-	Status        string `xml:"status"`
-	HasChildren   bool   `xml:"has_children"`
-}
-
-type tag struct {
-	ID        uint   `xml:"id"`
-	Name      string `xml:"name"`
-	Count     uint   `xml:"count"`
-	Type      uint   `xml:"type"`
-	Ambiguous bool   `xml:"ambiguous"`
-}
-
-type user struct {
-	ID     uint   `xml:"id"`
-	Name   string `xml:"username"`
-	Active bool   `xml:"active"`
-}
-
-type comment struct {
-	ID           uint   `xml:"id,attr"`
-	PostID       uint   `xml:"post_id,attr"`
-	CreationDate string `xml:"created_at,attr"`
-	Creator      uint   `xml:"creator,attr"`
-	CreatorID    uint   `xml:"creator_id,attr"`
-}
-
 const (
-	baseUrl           = "https://gelbooru.com/index.php?"
-	basePostSearchUrl = baseUrl + "page=dapi&s=post&q=index"
-	baseTagsSearchUrl = baseUrl + "page=dapi&s=tag&q=index"
-	baseUserSearchUrl = baseUrl + "page=dapi&s=user&q=index"
-	baseCommentsUrl   = baseUrl + "page=dapi&s=comment&q=index"
+	postSearchPrefix    = "https://gelbooru.com/index.php?page=dapi&q=index&s=post"
+	tagSearchPrefix     = "https://gelbooru.com/index.php?page=dapi&q=index&s=tag"
+	userSearchPrefix    = "https://gelbooru.com/index.php?page=dapi&q=index&s=user"
+	commentSearchPrefix = "https://gelbooru.com/index.php?page=dapi&q=index&s=comment"
 )
 
 // NewClient returns an Client that allows the user to interact with the gelbooru API.
@@ -132,119 +28,148 @@ func NewClient(key, user string) Client {
 	if len(key) == 0 || len(user) == 0 {
 		return ""
 	}
-	return Client(fmt.Sprint("&api_key=", key, "&user_id", user))
+
+	return Client(fmt.Sprint("&api_key=", key, "&user_id=", user))
 }
 
-// SearchPosts returns a postSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed PostFilter.
-func (c Client) SearchPosts(filter PostFilter) (postSearchResults, error) {
-	var url strings.Builder
-	var results postSearchResults
-	if filter.PostLimit > 100 {
-		return postSearchResults{}, errors.New("post limit can not be greater then 100")
+// SearchPosts returns a postSearchResult that contains the parsed response to the gelbooru API call
+// using the filters specifed in the passed PostFilter. Post searches have a hard limit of 100
+// results.
+func (c Client) SearchPosts(f PostFilter) (result postSearchResult, err error) {
+	if f.PostLimit > 100 {
+		return result, errors.New("PostLimit can not be greater than 100")
 	}
-	url.WriteString(basePostSearchUrl)
+
+	var url strings.Builder
+	url.WriteString(postSearchPrefix)
 	url.WriteString(string(c))
-	url.WriteString("&pid=")
-	url.WriteString(strconv.Itoa(int(filter.PageNum)))
-	url.WriteString("&limit=")
-	url.WriteString(strconv.Itoa(int(filter.PostLimit)))
-	url.WriteString("&cid=")
-	url.WriteString(strconv.Itoa(int(filter.ChangeID)))
-	url.WriteString("&id=")
-	url.WriteString(strconv.Itoa(int(filter.PostID)))
-	url.WriteString("&tags=")
-	for i, v := range filter.Tags {
+	if f.PageNum > 0 {
+		url.WriteString("&pid=")
+		url.WriteString(strconv.Itoa(int(f.PageNum)))
+	}
+	if f.PostLimit > 0 {
+		url.WriteString("&limit=")
+		url.WriteString(strconv.Itoa(int(f.PostLimit)))
+	}
+	if f.ChangeID > 0 {
+		url.WriteString("&cid=")
+		url.WriteString(strconv.Itoa(int(f.ChangeID)))
+	}
+	if f.PostID > 0 {
+		url.WriteString("&id=")
+		url.WriteString(strconv.Itoa(int(f.PostID)))
+	}
+	for i, v := range f.Tags {
 		if i > 0 {
 			url.WriteByte('+')
+		} else {
+			url.WriteString("&tags=")
 		}
 		url.WriteString(v)
 	}
-	if err := request(url.String(), &results); err != nil {
-		return postSearchResults{}, err
-	}
-	return results, nil
+
+	err = request(url.String(), &result)
+	return
 }
 
-// SearchTags returns a tagSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed TagFilter.
-func (c Client) SearchTags(filter TagFilter) (tagSearchResults, error) {
-	var url strings.Builder
-	var results tagSearchResults
-	if filter.TagLimit > 100 {
-		return tagSearchResults{}, errors.New("tag limit can not be greater then 100")
+// SearchTags returns a tagSearchResult that contains the parsed response to the gelbooru API call
+// using the filters specifed in the passed TagFilter. Tag searches have a hard limit of 1000
+// results. NOTE: This may be a gelbooru API bug, as its docs suggest the limit is 100.
+func (c Client) SearchTags(f TagFilter) (result tagSearchResult, err error) {
+	if f.TagLimit > 1000 {
+		return result, errors.New("TagLimit can not be greater than 1000")
 	}
-	url.WriteString(basePostSearchUrl)
+
+	var url strings.Builder
+	url.WriteString(tagSearchPrefix)
 	url.WriteString(string(c))
-	url.WriteString("&id=")
-	url.WriteString(strconv.Itoa(int(filter.TagID)))
-	url.WriteString("&limit=")
-	url.WriteString(strconv.Itoa(int(filter.TagLimit)))
-	url.WriteString("&after_id=")
-	url.WriteString(strconv.Itoa(int(filter.AfterID)))
-	url.WriteString("&name=")
-	url.WriteString(filter.Name)
-	url.WriteString("&names=")
-	for i, v := range filter.Names {
+	if f.TagID > 0 {
+		url.WriteString("&id=")
+		url.WriteString(strconv.Itoa(int(f.TagID)))
+	}
+	if f.TagLimit > 0 {
+		url.WriteString("&limit=")
+		url.WriteString(strconv.Itoa(int(f.TagLimit)))
+	}
+	if f.AfterID > 0 {
+		url.WriteString("&after_id=")
+		url.WriteString(strconv.Itoa(int(f.AfterID)))
+	}
+	if len(f.Name) > 0 {
+		url.WriteString("&name=")
+		url.WriteString(f.Name)
+	}
+	for i, v := range f.Names {
 		if i > 0 {
 			url.WriteByte('+')
+		} else {
+			url.WriteString("&names=")
 		}
 		url.WriteString(v)
 	}
-	url.WriteString("&name_pattern=")
-	url.WriteString(filter.NamePattern)
-	url.WriteString("&orderby=")
-	url.WriteString(filter.OrderBy)
-	if err := request(url.String(), &results); err != nil {
-		return tagSearchResults{}, err
+	if len(f.NamePattern) > 0 {
+		url.WriteString("&name_pattern=")
+		url.WriteString(f.NamePattern)
 	}
-	return results, nil
+	switch f.OrderBy {
+	case "":
+	case "date", "count", "name":
+		url.WriteString("&orderby=")
+		url.WriteString(f.OrderBy)
+	default:
+		return result, fmt.Errorf("invalid OrderBy %s", f.OrderBy)
+	}
+
+	err = request(url.String(), &result)
+	return
 }
 
-// SearchUsers returns a userSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed UserFilter.
-func (c Client) SearchUsers(filter UserFilter) (userSearchResults, error) {
+// SearchUsers returns a userSearchResult that contains the parsed response to the gelbooru API call
+// using the filters specifed in the passed UserFilter. User searches have a hard limit of 100
+// results.
+func (c Client) SearchUsers(f UserFilter) (result userSearchResult, err error) {
+	if f.UserLimit > 100 {
+		return userSearchResult{}, errors.New("UserLimit can not be greater than 100")
+	}
+
 	var url strings.Builder
-	var results userSearchResults
-	if filter.UserLimit > 100 {
-		return userSearchResults{}, errors.New("user limit can not be greater then 100")
-	}
-	url.WriteString(basePostSearchUrl)
+	url.WriteString(userSearchPrefix)
 	url.WriteString(string(c))
-	url.WriteString("&limit=%d")
-	url.WriteString(strconv.Itoa(int(filter.UserLimit)))
-	url.WriteString("&pid=")
-	url.WriteString(strconv.Itoa(int(filter.PageNum)))
-	url.WriteString("&name=")
-	url.WriteString(filter.UserName)
-	url.WriteString("&name_pattern=")
-	url.WriteString(filter.NamePattern)
-	if err := request(url.String(), &results); err != nil {
-		return userSearchResults{}, err
+	if f.UserLimit > 0 {
+		url.WriteString("&limit=")
+		url.WriteString(strconv.Itoa(int(f.UserLimit)))
 	}
-	return results, nil
+	if f.PageNum > 0 {
+		url.WriteString("&pid=")
+		url.WriteString(strconv.Itoa(int(f.PageNum)))
+	}
+	if len(f.UserName) > 0 {
+		url.WriteString("&name=")
+		url.WriteString(f.UserName)
+	}
+	if len(f.NamePattern) > 0 {
+		url.WriteString("&name_pattern=")
+		url.WriteString(f.NamePattern)
+	}
+
+	err = request(url.String(), &result)
+	return
 }
 
-// SearchComments returns a commentSearchResults that contains the results of the gelbooru api
-// call using the filters specifed in the passed CommentFilter.
-func (c Client) SearchComments(filter CommentFilter) (commentSearchResults, error) {
-	var url strings.Builder
-	var results commentSearchResults
-	if filter.PostID == 0 {
-		return commentSearchResults{}, errors.New("invalid PostID 0")
+// SearchComments returns a commentSearchResult that contains the parsed response to the gelbooru
+// API call using the filters specifed in the passed CommentFilter.
+func (c Client) SearchComments(f CommentFilter) (result commentSearchResult, err error) {
+	if f.PostID == 0 {
+		return result, errors.New("invalid PostID 0")
 	}
-	url.WriteString(baseCommentsUrl)
-	url.WriteString(string(c))
-	url.WriteString("&post_id=")
-	url.WriteString(strconv.Itoa(int(filter.PostID)))
-	if err := request(url.String(), &results); err != nil {
-		return commentSearchResults{}, err
-	}
-	return results, nil
+
+	err = request(fmt.Sprint(commentSearchPrefix, c, "&post_id=", f.PostID), &result)
+	return
 }
 
-// Requests a XML file from the internet and parses it
+// request gets an XML document from the internet and parses it.
 func request(url string, v any) error {
+	// TODO: is there a better way to write this?
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
