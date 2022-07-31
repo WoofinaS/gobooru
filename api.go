@@ -1,11 +1,11 @@
-// The full documentation of the gelbooru api can be seen at
+// The full documentation of the gelbooru API can be seen at
 // https://gelbooru.com/index.php?page=wiki&s=view&id=18780
 package gobooru
 
 import (
 	"encoding/xml"
 	"errors"
-	"fmt"
+	"fmt" // TODO: consider eliminating such a heavy (but very common) dependency.
 	"io"
 	"net/http"
 	"strconv"
@@ -35,7 +35,7 @@ func NewClient(key, user string) Client {
 // SearchPosts returns a postSearchResult that contains the parsed response to the gelbooru API call
 // using the filters specifed in the passed PostFilter. Post searches have a hard limit of 100
 // results.
-func (c Client) SearchPosts(f PostFilter) (result postSearchResult, err error) {
+func (c Client) SearchPosts(f PostFilter) (result *postSearchResult, err error) {
 	if f.PostLimit > 100 {
 		return result, errors.New("PostLimit can not be greater than 100")
 	}
@@ -75,7 +75,7 @@ func (c Client) SearchPosts(f PostFilter) (result postSearchResult, err error) {
 // SearchTags returns a tagSearchResult that contains the parsed response to the gelbooru API call
 // using the filters specifed in the passed TagFilter. Tag searches have a hard limit of 1000
 // results. NOTE: This may be a gelbooru API bug, as its docs suggest the limit is 100.
-func (c Client) SearchTags(f TagFilter) (result tagSearchResult, err error) {
+func (c Client) SearchTags(f TagFilter) (result *tagSearchResult, err error) {
 	if f.TagLimit > 1000 {
 		return result, errors.New("TagLimit can not be greater than 1000")
 	}
@@ -127,9 +127,9 @@ func (c Client) SearchTags(f TagFilter) (result tagSearchResult, err error) {
 // SearchUsers returns a userSearchResult that contains the parsed response to the gelbooru API call
 // using the filters specifed in the passed UserFilter. User searches have a hard limit of 100
 // results.
-func (c Client) SearchUsers(f UserFilter) (result userSearchResult, err error) {
+func (c Client) SearchUsers(f UserFilter) (result *userSearchResult, err error) {
 	if f.UserLimit > 100 {
-		return userSearchResult{}, errors.New("UserLimit can not be greater than 100")
+		return result, errors.New("UserLimit can not be greater than 100")
 	}
 
 	var url strings.Builder
@@ -158,7 +158,7 @@ func (c Client) SearchUsers(f UserFilter) (result userSearchResult, err error) {
 
 // SearchComments returns a commentSearchResult that contains the parsed response to the gelbooru
 // API call using the filters specifed in the passed CommentFilter.
-func (c Client) SearchComments(f CommentFilter) (result commentSearchResult, err error) {
+func (c Client) SearchComments(f CommentFilter) (result *commentSearchResult, err error) {
 	if f.PostID == 0 {
 		return result, errors.New("invalid PostID 0")
 	}
@@ -178,9 +178,5 @@ func request(url string, v any) error {
 	if err != nil {
 		return err
 	}
-	err = xml.Unmarshal(bytes, v)
-	if err != nil {
-		return err
-	}
-	return nil
+	return xml.Unmarshal(bytes, v)
 }
