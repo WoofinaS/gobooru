@@ -1,4 +1,4 @@
-package gobooru
+package gel
 
 type PostFilter struct {
 	PostID    uint

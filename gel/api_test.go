@@ -1,4 +1,4 @@
-package gobooru
+package gel
 
 import (
 	"fmt"

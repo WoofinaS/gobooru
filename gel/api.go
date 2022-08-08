@@ -1,13 +1,11 @@
 // The full documentation of the gelbooru API can be seen at
 // https://gelbooru.com/index.php?page=wiki&s=view&id=18780
-package gobooru
+package gel
 
 import (
-	"encoding/xml"
 	"errors"
 	"fmt" // TODO: consider eliminating such a heavy (but very common) dependency.
-	"io"
-	"net/http"
+	"github.com/WoofinaS/gobooru"
 	"strconv"
 	"strings"
 )
@@ -68,7 +66,7 @@ func (c Client) SearchPosts(f PostFilter) (result *postSearchResult, err error) 
 		url.WriteString(v)
 	}
 
-	err = request(url.String(), &result)
+	err = gobooru.Request(url.String(), &result)
 	return
 }
 
@@ -120,7 +118,7 @@ func (c Client) SearchTags(f TagFilter) (result *tagSearchResult, err error) {
 		return result, fmt.Errorf("invalid OrderBy %s", f.OrderBy)
 	}
 
-	err = request(url.String(), &result)
+	err = gobooru.Request(url.String(), &result)
 	return
 }
 
@@ -152,7 +150,7 @@ func (c Client) SearchUsers(f UserFilter) (result *userSearchResult, err error) 
 		url.WriteString(f.NamePattern)
 	}
 
-	err = request(url.String(), &result)
+	err = gobooru.Request(url.String(), &result)
 	return
 }
 
@@ -163,20 +161,6 @@ func (c Client) SearchComments(f CommentFilter) (result *commentSearchResult, er
 		return result, errors.New("invalid PostID 0")
 	}
 
-	err = request(fmt.Sprint(commentSearchPrefix, c, "&post_id=", f.PostID), &result)
+	err = gobooru.Request(fmt.Sprint(commentSearchPrefix, c, "&post_id=", f.PostID), &result)
 	return
-}
-
-// request gets an XML document from the internet and parses it.
-func request(url string, v any) error {
-	// TODO: is there a better way to write this?
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	bytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return xml.Unmarshal(bytes, v)
 }
