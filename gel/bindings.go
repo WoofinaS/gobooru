@@ -1,5 +1,7 @@
 package gel
 
+type Client string
+
 type PostFilter struct {
 	PostID    uint
 	PostLimit uint

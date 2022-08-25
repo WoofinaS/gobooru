@@ -1,1 +1,1 @@
-## Please, ignore this for now!
+### The Gelbooru API portion of Gobooru, while functional, may change syntactically or otherwise in future releases.

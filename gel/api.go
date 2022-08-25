@@ -4,13 +4,10 @@ package gel
 
 import (
 	"errors"
-	"fmt" // TODO: consider eliminating such a heavy (but very common) dependency.
 	"github.com/WoofinaS/gobooru"
-	"strconv"
+	. "strconv"
 	"strings"
 )
-
-type Client string
 
 const (
 	postSearchPrefix    = "https://gelbooru.com/index.php?page=dapi&q=index&s=post"
@@ -27,7 +24,7 @@ func NewClient(key, user string) Client {
 		return ""
 	}
 
-	return Client(fmt.Sprint("&api_key=", key, "&user_id=", user))
+	return Client("&api_key=" + key + "&user_id=" + user)
 }
 
 // SearchPosts returns a postSearchResult that contains the parsed response to the gelbooru API call
@@ -43,19 +40,19 @@ func (c Client) SearchPosts(f PostFilter) (result *postSearchResult, err error) 
 	url.WriteString(string(c))
 	if f.PageNum > 0 {
 		url.WriteString("&pid=")
-		url.WriteString(strconv.Itoa(int(f.PageNum)))
+		url.WriteString(Itoa(int(f.PageNum)))
 	}
 	if f.PostLimit > 0 {
 		url.WriteString("&limit=")
-		url.WriteString(strconv.Itoa(int(f.PostLimit)))
+		url.WriteString(Itoa(int(f.PostLimit)))
 	}
 	if f.ChangeID > 0 {
 		url.WriteString("&cid=")
-		url.WriteString(strconv.Itoa(int(f.ChangeID)))
+		url.WriteString(Itoa(int(f.ChangeID)))
 	}
 	if f.PostID > 0 {
 		url.WriteString("&id=")
-		url.WriteString(strconv.Itoa(int(f.PostID)))
+		url.WriteString(Itoa(int(f.PostID)))
 	}
 	for i, v := range f.Tags {
 		if i > 0 {
@@ -83,15 +80,15 @@ func (c Client) SearchTags(f TagFilter) (result *tagSearchResult, err error) {
 	url.WriteString(string(c))
 	if f.TagID > 0 {
 		url.WriteString("&id=")
-		url.WriteString(strconv.Itoa(int(f.TagID)))
+		url.WriteString(Itoa(int(f.TagID)))
 	}
 	if f.TagLimit > 0 {
 		url.WriteString("&limit=")
-		url.WriteString(strconv.Itoa(int(f.TagLimit)))
+		url.WriteString(Itoa(int(f.TagLimit)))
 	}
 	if f.AfterID > 0 {
 		url.WriteString("&after_id=")
-		url.WriteString(strconv.Itoa(int(f.AfterID)))
+		url.WriteString(Itoa(int(f.AfterID)))
 	}
 	if len(f.Name) > 0 {
 		url.WriteString("&name=")
@@ -115,7 +112,7 @@ func (c Client) SearchTags(f TagFilter) (result *tagSearchResult, err error) {
 		url.WriteString("&orderby=")
 		url.WriteString(f.OrderBy)
 	default:
-		return result, fmt.Errorf("invalid OrderBy %s", f.OrderBy)
+		return result, errors.New("invalid OrderBy " + f.OrderBy)
 	}
 
 	err = gobooru.Request(url.String(), &result)
@@ -135,11 +132,11 @@ func (c Client) SearchUsers(f UserFilter) (result *userSearchResult, err error) 
 	url.WriteString(string(c))
 	if f.UserLimit > 0 {
 		url.WriteString("&limit=")
-		url.WriteString(strconv.Itoa(int(f.UserLimit)))
+		url.WriteString(Itoa(int(f.UserLimit)))
 	}
 	if f.PageNum > 0 {
 		url.WriteString("&pid=")
-		url.WriteString(strconv.Itoa(int(f.PageNum)))
+		url.WriteString(Itoa(int(f.PageNum)))
 	}
 	if len(f.UserName) > 0 {
 		url.WriteString("&name=")
@@ -161,6 +158,6 @@ func (c Client) SearchComments(f CommentFilter) (result *commentSearchResult, er
 		return result, errors.New("invalid PostID 0")
 	}
 
-	err = gobooru.Request(fmt.Sprint(commentSearchPrefix, c, "&post_id=", f.PostID), &result)
+	err = gobooru.Request(commentSearchPrefix+string(c)+"&post_id="+Itoa(int(f.PostID)), &result)
 	return
 }
