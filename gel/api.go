@@ -167,6 +167,7 @@ func (c Client) SearchComments(f CommentFilter) (result *commentSearchResult, er
 	return
 }
 
+// DownloadPost saves a image to the given folder and returns a error.
 func DownloadPost(p post, folder string) (err error) {
 	resp, err := http.Get(p.FileURL)
 	if err != nil {
