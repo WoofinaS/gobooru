@@ -22,12 +22,14 @@ const (
 // NewClient returns an Client that allows the user to interact with the gelbooru API.
 // Authenticating a user account with both an API key and UserID may prevent API rate limiting,
 // however, use without either is possible as well.
-func NewClient(key, user string) Client {
+func NewClient(key, user string) (c Client) {
 	if len(key) == 0 || len(user) == 0 {
-		return ""
+		c = ""
+		return
 	}
 
-	return Client("&api_key=" + key + "&user_id=" + user)
+	c = Client("&api_key=" + key + "&user_id=" + user)
+	return
 }
 
 // SearchPosts returns a postSearchResult that contains the parsed response to the gelbooru API call
@@ -165,10 +167,10 @@ func (c Client) SearchComments(f CommentFilter) (result *commentSearchResult, er
 	return
 }
 
-func DownloadPost(p post, folder string) error {
+func DownloadPost(p post, folder string) (err error) {
 	resp, err := http.Get(p.FileURL)
 	if err != nil {
-		return err
+		return
 	}
 	defer resp.Body.Close()
 
@@ -178,28 +180,29 @@ func DownloadPost(p post, folder string) error {
 	path.WriteString(p.FileName)
 	file, err := os.Create(path.String())
 	if err != nil {
-		return err
+		return
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
-		return err
+		return
 	}
 
-	return nil
+	return
 }
 
 // Request is an internal function.
-func request(url string, v interface{}) error {
+func request(url string, v interface{}) (err error) {
 	// TODO: is there a better way to write this?
 	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		return
 	}
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return
 	}
-	return xml.Unmarshal(bytes, v)
+	err = xml.Unmarshal(bytes, v)
+	return
 }
