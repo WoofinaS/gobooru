@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -162,6 +163,31 @@ func (c Client) SearchComments(f CommentFilter) (result *commentSearchResult, er
 
 	err = request(commentSearchPrefix+string(c)+"&post_id="+strconv.Itoa(int(f.PostID)), &result)
 	return
+}
+
+func DownloadPost(p post, folder string) error {
+	resp, err := http.Get(p.FileURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var path strings.Builder
+	path.WriteString(folder)
+	path.WriteString("/")
+	path.WriteString(p.FileName)
+	file, err := os.Create(path.String())
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Request is an internal function.
